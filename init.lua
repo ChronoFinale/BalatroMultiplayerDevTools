@@ -105,3 +105,8 @@ MPAPI.sendDebugMessage('DevTools auth overrides applied')
 -- account it's authenticated as from a menu, instead of only at boot via the
 -- env vars above. The picker supersedes whatever the env vars set once used.
 DEVTOOLS.load_file('impersonation_ui.lua')
+
+-- Visual test harness: loopback-lobby draft scenarios -> screenshots in the
+-- save dir. Auto-runs (then quits) when BMP_SHOT_SUITE is set; also available
+-- as DEVTOOLS.run_shot_suite() from a running instance.
+DEVTOOLS.load_file('screenshot_suite.lua')
