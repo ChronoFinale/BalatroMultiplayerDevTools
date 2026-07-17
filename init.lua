@@ -59,6 +59,12 @@ local connection = MPAPI.networking.connection
 DEVTOOLS.slot_defaults = { 'Player001', 'Player002', 'Player003', 'Player004' }
 
 local instance_slot = DEVTOOLS.load_file('instance_slot.lua')
+-- Anchor the module -- and the bound socket it keeps in .held -- in the
+-- global DEVTOOLS table. As a chunk-local it would be garbage-collected
+-- once boot completes, and luasocket CLOSES a collected socket: the port
+-- frees, and the next window launched claims the same slot again (both
+-- windows logged in as Player001).
+DEVTOOLS.instance_slot_lib = instance_slot
 local socket_ok, socket = pcall(require, 'socket')
 if socket_ok and socket then
 	-- Raw socket.tcp(), NOT the socket.bind helper: the helper sets
