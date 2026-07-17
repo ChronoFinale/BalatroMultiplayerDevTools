@@ -42,30 +42,55 @@ end
 
 local connection = MPAPI.networking.connection
 
--- Logs in via an ephemeral dev/temp account (random in-memory player id, not
--- persisted to the DB). A temp account can never queue matchmaking or appear
--- on the leaderboard (no players row), so this is commented out to fall back
--- to real Steam auth. Uncomment to use a throwaway dev account instead.
--- function connection._do_auth(self)
--- 	self:_try_dev_auth()
--- end
+-- Impersonation logs this instance in as an EXISTING player (real players
+-- row), so it can queue matchmaking and appear on the leaderboard -- the way
+-- a second game window acts as a different account without a second Steam
+-- login. The identity is chosen by precedence:
+--
+--   1. BMP_IMPERSONATE_ID / BMP_IMPERSONATE_NAME env vars -- explicit
+--      per-instance override, set before launching that instance.
+--   2. The instance slot default below -- the first window launched claims
+--      slot 1 and logs in as slot_defaults[1], the second window slot 2, ...
+--      so two windows are two different players with zero setup.
+--   3. Neither -> real Steam auth.
+--
+-- The in-client picker (impersonation_ui.lua) supersedes all of this at
+-- runtime once used.
+DEVTOOLS.slot_defaults = { 'Player001', 'Player002', 'Player003', 'Player004' }
 
--- Impersonation: log in as an EXISTING player (real players row), so it can
--- queue matchmaking and appear on the leaderboard. This lets a second game
--- instance act as a different real account without a second Steam login --
--- useful for testing matchmaking locally. Enable per-instance by setting one
--- of these env vars before launching that instance (the other instance, with
--- neither set, uses real Steam):
---   BMP_IMPERSONATE_ID=<players.id uuid>
---   BMP_IMPERSONATE_NAME=<steamName>      e.g. a seeded "Runner001"
+local instance_slot = DEVTOOLS.load_file('instance_slot.lua')
+local socket_ok, socket = pcall(require, 'socket')
+if socket_ok and socket then
+	-- Raw socket.tcp(), NOT the socket.bind helper: the helper sets
+	-- SO_REUSEADDR, which on Windows lets a second process bind an
+	-- already-claimed port -- both windows would get slot 1.
+	DEVTOOLS.instance_slot = instance_slot.acquire(45601, #DEVTOOLS.slot_defaults, function(host, port)
+		local s = socket.tcp()
+		local bound = s:bind(host, port)
+		if not bound then
+			s:close()
+			return nil
+		end
+		s:listen(1)
+		return s
+	end)
+end
+DEVTOOLS.slot_default_name = instance_slot.pick_default(DEVTOOLS.instance_slot, DEVTOOLS.slot_defaults)
+
 local imp_id = os.getenv('BMP_IMPERSONATE_ID')
 local imp_name = os.getenv('BMP_IMPERSONATE_NAME')
-if imp_id or imp_name then
-	local target = imp_id and { playerId = imp_id } or { steamName = imp_name }
+local target = (imp_id and { playerId = imp_id })
+	or (imp_name and { steamName = imp_name })
+	or (DEVTOOLS.slot_default_name and { steamName = DEVTOOLS.slot_default_name })
+if target then
 	function connection._do_auth(self)
 		self:_try_impersonate_auth(target)
 	end
-	MPAPI.sendDebugMessage('Dev impersonation auth enabled for ' .. tostring(imp_id or imp_name))
+	MPAPI.sendDebugMessage(
+		'Dev impersonation auth enabled for '
+			.. tostring(imp_id or imp_name or DEVTOOLS.slot_default_name)
+			.. (DEVTOOLS.instance_slot and (' (instance slot ' .. DEVTOOLS.instance_slot .. ')') or '')
+	)
 end
 
 MPAPI.sendDebugMessage('DevTools auth overrides applied')

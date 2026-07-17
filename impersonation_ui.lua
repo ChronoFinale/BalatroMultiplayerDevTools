@@ -26,7 +26,14 @@ local do_login
 -- Persistent across overlay open/close within this client session (this file
 -- is loaded once at boot), so re-opening the picker keeps whatever was last
 -- typed or quick-selected -- the "last used this session" prefill priority.
-local _input_state = { text = impersonation.resolve_prefill(nil, os.getenv('BMP_IMPERSONATE_ID'), os.getenv('BMP_IMPERSONATE_NAME')) }
+local _input_state = {
+	text = impersonation.resolve_prefill(
+		nil,
+		os.getenv('BMP_IMPERSONATE_ID'),
+		os.getenv('BMP_IMPERSONATE_NAME'),
+		DEVTOOLS.slot_default_name
+	),
+}
 
 -- pending/message/ok banner state, advanced by impersonation.next_feedback().
 local _feedback = { pending = false, message = nil, ok = nil }

@@ -30,8 +30,10 @@ end
 -- Priority for the text input's initial value: whatever was last typed/used
 -- this client session > the BMP_IMPERSONATE_* env var devtools/init.lua
 -- applied at boot (id takes precedence over name, mirroring devtools/init.lua's
--- own precedence) > empty. An empty string is treated the same as nil/absent.
-function M.resolve_prefill(session_last, env_id, env_name)
+-- own precedence) > the instance-slot default identity this window booted as
+-- (instance_slot.lua) > empty. An empty string is treated the same as
+-- nil/absent throughout.
+function M.resolve_prefill(session_last, env_id, env_name, slot_default)
 	if session_last and session_last ~= '' then
 		return session_last
 	end
@@ -40,6 +42,9 @@ function M.resolve_prefill(session_last, env_id, env_name)
 	end
 	if env_name and env_name ~= '' then
 		return env_name
+	end
+	if slot_default and slot_default ~= '' then
+		return slot_default
 	end
 	return ''
 end

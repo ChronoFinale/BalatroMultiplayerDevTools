@@ -93,6 +93,10 @@ check(M.resolve_prefill(nil, 'env-id', 'EnvName') == 'env-id', 'env id wins over
 check(M.resolve_prefill('', 'env-id', 'EnvName') == 'env-id', 'empty-string session value treated as absent')
 check(M.resolve_prefill(nil, nil, 'EnvName') == 'EnvName', 'env name used when no session value or env id')
 check(M.resolve_prefill(nil, nil, nil) == '', 'no session/env values -> empty prefill')
+check(M.resolve_prefill(nil, nil, nil, 'Player002') == 'Player002', 'instance-slot default used when nothing else set')
+check(M.resolve_prefill(nil, nil, 'EnvName', 'Player002') == 'EnvName', 'env name wins over slot default')
+check(M.resolve_prefill('LastUsed', nil, nil, 'Player002') == 'LastUsed', 'session last used wins over slot default')
+check(M.resolve_prefill(nil, nil, nil, '') == '', 'blank slot default treated as absent')
 
 ------------------------
 -- next_feedback: picker state machine
