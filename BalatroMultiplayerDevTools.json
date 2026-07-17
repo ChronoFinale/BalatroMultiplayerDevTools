@@ -1,0 +1,20 @@
+{
+  "id": "BalatroMultiplayerDevTools",
+  "name": "BalatroMultiplayerDevTools",
+  "display_name": "Balatro Multiplayer DevTools",
+  "author": [
+    "ChronoFinale"
+  ],
+  "description": "Dev-only toolbox for the Balatro Multiplayer stack: per-window auto-login (instance slots), account impersonation, and a visual test harness that screenshots scripted UI scenarios. Not for production use.",
+  "prefix": "bmpdev",
+  "main_file": "init.lua",
+  "priority": 0,
+  "badge_colour": "AC3232",
+  "badge_text_colour": "FFFFFF",
+  "version": "0.1.0",
+  "dependencies": [
+    "Steamodded (>=1.0.0~BETA-1221a)",
+    "MultiplayerAPI (>=0.1.0)"
+  ],
+  "conflicts": []
+}

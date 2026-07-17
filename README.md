@@ -1,51 +1,68 @@
-# Multiplayer DevTools
+# Balatro Multiplayer DevTools
 
-A standalone SMODS mod that adds **dev-only account impersonation** for local
-testing of [BalatroMultiplayerAPI](https://github.com/Balatro-Multiplayer/BalatroMultiplayerAPI)
-(matchmaking, PvP, etc.) without needing a second Steam login per test
-instance.
-
-It is a separate mod from `MultiplayerAPI`, in its own repository: the API mod
-is identical for every user, release or developer. Dev capability comes from
-installing/enabling this mod, nothing else.
-
-## What it does
-
-- Boot-time impersonation via env vars, read before the game connects:
-  - `BMP_IMPERSONATE_ID=<players.id uuid>`
-  - `BMP_IMPERSONATE_NAME=<steamName>` (any name — the dev server creates the
-    account on first login if it doesn't exist)
-  - Neither set -> falls through to real Steam auth.
-- A **DEV** button embedded in the Multiplayer account panel (main menu) that
-  opens a picker to switch which account the running client is authenticated
-  as at runtime, without restarting. Type any name (created on demand) or a
-  player uuid, or use the quick-select buttons.
-- Both paths log in via the dev server's impersonation endpoint (404s in
-  production — requires `MPAPI.config.use_custom_server` pointed at a local
-  dev server running `NODE_ENV=development`). Impersonated accounts are real
-  `players` rows, so they can queue matchmaking and appear on the leaderboard
-  like a real player.
+Dev-only toolbox for working on the Balatro Multiplayer stack
+([BalatroMultiplayerAPI](https://github.com/Balatro-Multiplayer/BalatroMultiplayerAPI)
+and its consumer mods). Install it alongside the mods you develop; never ship
+it to players.
 
 ## Install
 
-This mod **depends on `MultiplayerAPI`** (declared in `MPAPIDevTools.json`),
-which must also be installed.
+Clone into your Balatro `Mods` folder (or junction it there):
 
-Copy or junction this repository into your Mods folder like any other mod:
-
-```
-mklink /J "%AppData%\Balatro\Mods\MPAPIDevTools" "<path to this repo>"
+```powershell
+git clone https://github.com/ChronoFinale/BalatroMultiplayerDevTools "$env:APPDATA\Balatro\Mods\BalatroMultiplayerDevTools"
 ```
 
-(or the equivalent symlink on macOS/Linux, or just copy the folder.)
+Requires Steamodded and the MultiplayerAPI mod. Everything here assumes a
+local dev server (`use_custom_server`) — the impersonation endpoint 404s in
+production by design.
 
-Enable/disable it like any mod — via the SMODS mod manager, or by adding a
-`.lovelyignore` file to the folder.
+## What's in the box
 
-## Testing
+### Per-window auto-login (instance slots)
 
-Pure-core unit tests, no game/mod runtime needed:
+Launch the game twice with zero setup: the first window logs in as
+`Player001`, the second as `Player002` (up to `Player004`). Each instance
+claims a slot by binding a localhost port (45601+) for its lifetime, so slots
+never collide and free themselves on exit. Override per window with
+`BMP_IMPERSONATE_NAME` / `BMP_IMPERSONATE_ID`; the slot identity prefills the
+in-client picker.
 
+### Account impersonation picker
+
+A DEV row in the Multiplayer account panel: switch which player this instance
+is authenticated as at runtime (name or uuid), without relaunching.
+
+### Visual test harness (`DEVTOOLS.shots`)
+
+Scripted UI scenarios -> screenshots, driven through the REAL engine and UI
+on a loopback lobby (no server, no second window needed):
+
+```powershell
+# run all scenarios and quit (~90s): PNGs + gallery.html + manifest.json
+$env:BMP_SHOT_SUITE = "1"; & "<path-to>\Balatro.exe"
+
+# review
+start "$env:APPDATA\Balatro\shot_suite\gallery.html"
 ```
-luajit test_impersonation.lua
+
+Each scenario carries an `expect` caption describing what a correct shot
+shows — scroll the gallery and flag anything abnormal. Register your own
+scenarios from any mod:
+
+```lua
+if DEVTOOLS and DEVTOOLS.shots then
+    DEVTOOLS.shots.register({
+        name = '09-my-scene',
+        expect = 'what a correct shot shows',
+        setup = function(done) --[[ stage the scene ]] done() end,
+    })
+end
+```
+
+Optional golden diffing (a pointer to what changed, not a pass/fail gate):
+
+```powershell
+python tools/compare_shots.py            # diff current run vs goldens/
+python tools/compare_shots.py --accept   # promote current run to goldens
 ```
