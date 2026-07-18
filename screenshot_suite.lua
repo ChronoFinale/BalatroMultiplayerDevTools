@@ -131,6 +131,29 @@ function M.find_ui(node, pred, depth)
 	end
 end
 
+-- Simulate an active matchmaking search without a server: is_queued() scans
+-- mm.handles for a handle that has neither left nor matched. Returns a revert
+-- function; the guard overlay's own Leave buttons also work against it
+-- (h:leave() marks it left).
+function M.fake_queue()
+	local mm = MPAPI._internal.mm
+	mm.handles = mm.handles or {}
+	local h = { _left = false, mod_id = 'shot', game_mode = 'shot' }
+	function h:leave()
+		self._left = true
+	end
+	table.insert(mm.handles, h)
+	return function()
+		h._left = true
+		for i, x in ipairs(mm.handles) do
+			if x == h then
+				table.remove(mm.handles, i)
+				break
+			end
+		end
+	end
+end
+
 -----------------------------
 -- Scenario discovery
 -----------------------------
@@ -220,7 +243,7 @@ local function run_scenario(i, entries, on_finished)
 		run_scenario(i + 1, entries, on_finished)
 		return
 	end
-	after(SETTLE, function()
+	after(sc.settle or SETTLE, function()
 		love.graphics.captureScreenshot(SHOT_DIR .. '/' .. sc.name .. '.png')
 		entry.status = 'captured'
 		-- Capture happens at end-of-frame; tear down strictly after.

@@ -73,3 +73,18 @@ Optional golden diffing (a pointer to what changed, not a pass/fail gate):
 python tools/compare_shots.py            # diff current run vs goldens/
 python tools/compare_shots.py --accept   # promote current run to goldens
 ```
+
+### One-command dev environment
+
+`tools/dev-env.ps1` boots the whole local rig: starts the docker containers
+(emqx + postgres), starts the API server in its own console window, waits for
+health, then launches N auto-login game windows:
+
+```powershell
+.\tools\dev-env.ps1              # server + 2 windows (Player001 / Player002)
+.\tools\dev-env.ps1 -Windows 4   # a 4-player rig
+.\tools\dev-env.ps1 -NoServer    # just game windows
+```
+
+Paths default to the maintainer's machine; override with `-ServerDir` /
+`-GamePath` (or edit the params) for yours.
