@@ -47,16 +47,23 @@ start "$env:APPDATA\Balatro\shot_suite\gallery.html"
 ```
 
 Each scenario carries an `expect` caption describing what a correct shot
-shows — scroll the gallery and flag anything abnormal. Register your own
-scenarios from any mod:
+shows — scroll the gallery and flag anything abnormal.
+
+This mod is only the RUNNER. Scenarios live in the repos whose code they
+cover, as an inert `dev/shots.lua` the mod itself never loads (the API
+repo's is the reference example). The harness discovers those files at the
+start of a run; nothing loads or executes on normal boots:
 
 ```lua
-if DEVTOOLS and DEVTOOLS.shots then
-    DEVTOOLS.shots.register({
-        name = '09-my-scene',
-        expect = 'what a correct shot shows',
-        setup = function(done) --[[ stage the scene ]] done() end,
-    })
+-- <your-mod>/dev/shots.lua
+return function(H)  -- H: start_draft / find_tile / find_ui helpers
+    return {
+        {
+            name = '01-my-scene',
+            expect = 'what a correct shot shows',
+            setup = function(done) --[[ stage the scene ]] done() end,
+        },
+    }
 end
 ```
 
