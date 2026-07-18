@@ -82,6 +82,9 @@ def main():
     args = ap.parse_args()
     manifest = load_manifest()
     scenarios = [(e["name"], e.get("region")) for e in manifest["scenarios"] if e.get("status") == "captured"]
+    broken = [(e["name"], e.get("status"), e.get("error", "")) for e in manifest["scenarios"]
+              if e.get("status") not in ("captured", "skipped")]
+    skipped = [e["name"] for e in manifest["scenarios"] if e.get("status") == "skipped"]
 
     if args.accept is not None:
         GOLDEN_DIR.mkdir(exist_ok=True)
@@ -95,6 +98,13 @@ def main():
         return
 
     failed = False
+    # A scenario that ERRORED is a failing run -- silence here would report
+    # green on a broken suite.
+    for name, status, err in broken:
+        print(f"{name:40s} {status.upper()}: {err}")
+        failed = True
+    for name in skipped:
+        print(f"{name:40s} SKIPPED")
     for name, region in scenarios:
         verdict = compare_one(name, region)
         print(f"{name:40s} {verdict}")

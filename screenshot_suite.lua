@@ -80,7 +80,9 @@ end
 
 -- Start a real draft on the loopback lobby. `first` = 1 puts the local player
 -- on turn (build_order puts lobby.player_id at order[1]), 2 = the opponent.
-function M.start_draft(pool, schedule, first)
+-- Pass a `schedule` for explicit steps, or nil + `keep` for the legacy
+-- pool_size/keep config (alternating single bans -- the Speedrun shape).
+function M.start_draft(pool, schedule, first, keep)
 	_lobby = fake_lobby()
 	if not _real_get_lobby then
 		_real_get_lobby = MPAPI.get_current_lobby
@@ -93,6 +95,8 @@ function M.start_draft(pool, schedule, first)
 			return pool
 		end,
 		schedule = schedule,
+		pool_size = #pool,
+		keep = keep,
 		state_action = 'shot_state', -- deliberately unregistered: broadcasts no-op
 		ban_action = 'shot_ban',
 	}, function() end)
@@ -143,7 +147,14 @@ function M.fake_queue()
 		self._left = true
 	end
 	table.insert(mm.handles, h)
-	return function()
+	-- Drive the real queue-timer display too: a genuinely queued player sees
+	-- "Queueing m:ss" in the connection status, and the guard's Stay/Leave
+	-- outcomes are only visually verifiable through that indicator.
+	if mm.queue_timer and mm.queue_timer.start then
+		mm.queue_timer.start()
+	end
+	M._pending_reverts = M._pending_reverts or {}
+	local revert = function()
 		h._left = true
 		for i, x in ipairs(mm.handles) do
 			if x == h then
@@ -151,7 +162,12 @@ function M.fake_queue()
 				break
 			end
 		end
+		if mm.queue_timer and mm.queue_timer.stop then
+			mm.queue_timer.stop()
+		end
 	end
+	table.insert(M._pending_reverts, revert)
+	return revert
 end
 
 -----------------------------
@@ -219,6 +235,13 @@ end
 local SETTLE = 1.2 -- seconds for tweens/alignment (incl. popup clamp) to rest
 
 local function cleanup()
+	-- Drain fake-queue reverts even if the scenario errored before its own
+	-- teardown could run -- a leaked handle keeps the queue-timer ticking
+	-- into every later shot. Reverts are idempotent.
+	for _, revert in ipairs(M._pending_reverts or {}) do
+		pcall(revert)
+	end
+	M._pending_reverts = {}
 	pcall(function()
 		if G.FUNCS.exit_overlay_menu then
 			G.FUNCS.exit_overlay_menu()
@@ -239,15 +262,25 @@ local function run_scenario(i, entries, on_finished)
 		run_scenario(i + 1, entries, on_finished)
 		return
 	end
-	local ok, err = pcall(sc.setup, function() end)
+	local staged = false
+	local ok, err = pcall(sc.setup, function()
+		staged = true
+	end)
 	if not ok then
 		entry.status = 'error'
 		entry.error = tostring(err)
+		if sc.teardown then
+			pcall(sc.teardown)
+		end
 		cleanup()
 		run_scenario(i + 1, entries, on_finished)
 		return
 	end
-	after(sc.settle or SETTLE, function()
+	-- Honor the done() contract: the settle clock starts only once the
+	-- scenario says it is staged (all current scenarios call done()
+	-- synchronously; async setups get up to 10s).
+	local waited = 0
+	local function proceed()
 		love.graphics.captureScreenshot(SHOT_DIR .. '/' .. sc.name .. '.png')
 		entry.status = 'captured'
 		-- Capture happens at end-of-frame; tear down strictly after.
@@ -260,7 +293,26 @@ local function run_scenario(i, entries, on_finished)
 				run_scenario(i + 1, entries, on_finished)
 			end)
 		end)
-	end)
+	end
+	local function wait_staged()
+		if staged then
+			after(sc.settle or SETTLE, proceed)
+			return
+		end
+		waited = waited + 0.25
+		if waited > 10 then
+			entry.status = 'error'
+			entry.error = 'setup never called done()'
+			if sc.teardown then
+				pcall(sc.teardown)
+			end
+			cleanup()
+			run_scenario(i + 1, entries, on_finished)
+			return
+		end
+		after(0.25, wait_staged)
+	end
+	wait_staged()
 end
 
 -- One-glance contact sheet: shot_suite/gallery.html, double-click to review
@@ -287,6 +339,11 @@ local function write_gallery(entries)
 end
 
 function DEVTOOLS.run_shot_suite(and_quit)
+	if M._running then
+		DEVTOOLS.sendWarnMessage('shot suite already running; ignoring second start')
+		return
+	end
+	M._running = true
 	discover()
 	love.filesystem.createDirectory(SHOT_DIR)
 	DEVTOOLS.sendDebugMessage('shot suite: ' .. #M.scenarios .. ' scenarios -> save-dir/' .. SHOT_DIR)
@@ -303,6 +360,7 @@ function DEVTOOLS.run_shot_suite(and_quit)
 			_real_get_lobby = nil
 		end
 		_lobby = nil
+		M._running = false
 		if and_quit then
 			-- Give the last captureScreenshot's end-of-frame write time to land.
 			after(1.0, function()

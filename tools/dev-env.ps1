@@ -26,13 +26,24 @@ function Test-Health {
 }
 
 if (-not $NoServer) {
+    # Fail fast with real messages: under ErrorActionPreference=Stop, a bare
+    # `docker ... 2>$null` on a MISSING container throws NativeCommandError in
+    # Windows PowerShell 5.1. Probe defensively instead.
+    if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
+        throw "docker CLI not found - install Docker Desktop or run with -NoServer"
+    }
     foreach ($c in $Containers) {
-        $running = docker inspect -f '{{.State.Running}}' $c 2>$null
-        if ($running -ne "true") {
-            Write-Host "starting container $c..."
-            docker start $c | Out-Null
-        } else {
+        $running = "missing"
+        try { $running = (docker inspect -f '{{.State.Running}}' $c 2>&1 | Out-String).Trim() } catch {}
+        if ($running -eq "true") {
             Write-Host "container $c already running"
+        } else {
+            Write-Host "starting container $c..."
+            $started = $false
+            try { docker start $c *> $null; $started = ($LASTEXITCODE -eq 0) } catch {}
+            if (-not $started) {
+                throw "container '$c' could not be started (does it exist on this machine?). Create the stack first, or pass -Containers with your names, or -NoServer."
+            }
         }
     }
 
