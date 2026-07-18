@@ -141,7 +141,8 @@ reading orders for UI-first vs networking-first reviewers.
 Read with the stated question in mind; each file answers one.
 
 1. **PvP `agents.md`** — orientation. *How does the whole mod fit together?*
-2. **API `api/lobby.lua`** — the central object. *What events exist, what does
+2. **API `api/lobby/`** (`state.lua`, `events.lua`, `public.lua`,
+   `subscriptions.lua`) — the central object. *What events exist, what does
    `get_metadata` carry, who is host?*
 3. **PvP `pvp_api/lobby_bridge.lua`** — THE consumer pattern. *How do API
    events become `MP.LOBBY`/`MP.GAME` mutations? Note `decide_departure_action`
@@ -156,7 +157,8 @@ Read with the stated question in mind; each file answers one.
    entry point?* (The doc comment answers it — stranding.)
 7. **PvP `pvp_api/draft_pool.lua`** — degradation done right. *Trace every
    fallback: no server → local; bad pool → local; old API → local.*
-8. **Speedrun `objects/actions/start_game.lua`** — a second consumer for
+8. **Speedrun `objects/actions/start_game.lua`** (repo lives wherever the
+   Speedrun mod is installed — it travels with the Mods profile) — a second consumer for
    contrast. *Same BanPick engine, different config; where does the vanilla
    pool restriction live?*
 9. **Server `features/draft/draft.service.ts`** — the recorder-not-referee
