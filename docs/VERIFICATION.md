@@ -46,6 +46,24 @@ present but greyed — same layout as 01, nothing hidden.
 
 ![05](gallery/05-banned-tiles.png)
 
+### 05b · Pick phase — all bans done, choosing between the last 2
+**Done:** ran a ranked-shaped 1-3-3 ban sequence (both sides' bans applied
+through the real host-authoritative path), then clicked one of the two
+survivors.
+**Should show:** seven tiles with X overlays, two live; green "Your turn:
+pick your deck"; the clicked survivor raised with a GREEN Selected tag;
+`Selected: 1/1`; GREEN **Confirm Pick**.
+
+![05b](gallery/05b-pick-phase.png)
+
+### 05c · Speedrun White Stake Triple draft (from the Speedrun repo's scenarios)
+**Done:** started a draft with Speedrun's exact config (9 decks, keep 3 —
+alternating SINGLE bans), two bans already applied.
+**Should show:** two debuffed tiles, our single-ban turn — `Bans left: 1`,
+`Selected: 0/1`, plain deck tiles, no stake column anywhere.
+
+![05c](gallery/05c-speedrun-triple-draft.png)
+
 ### 06 · Tuple hover with stake column
 **Done:** hovered the 7th tile of a deck+stake pool (Nebula @ Blue Stake).
 **Should show:** two-column popup — deck name/effects left; stake column right
@@ -75,20 +93,28 @@ normal deck's hover.
 ## Queue guard — every entry point, every button
 
 ### 09 · The guard overlay
-**Done:** showed the guard (what any blocked action opens).
+**Done:** showed the guard while queued (what any blocked action opens).
 **Should show:** "Matchmaking In Progress", the can't-start-while-searching
-description, and three buttons: blue **Leave Queue & Continue**, red
-**Leave Queue**, green **Stay Queued**.
+description, three buttons (blue **Leave Queue & Continue**, red
+**Leave Queue**, green **Stay Queued**) — and "Queueing m:ss" in the
+connection panel proving the search is live.
 
 ![09](gallery/09-queue-guard-overlay.png)
 
-### 10 · Blocked from New Run setup
-**Done:** opened New Run setup while queued (faked), clicked Play — through the
-real wrapped `start_run`.
-**Should show:** the guard overlay — it REPLACES the setup overlay (that's the
-real behavior, they don't stack); the run did NOT start.
+### 10a · New Run setup, visibly queued
+**Done:** opened the New Run setup screen while a search runs — the moment
+BEFORE clicking Play.
+**Should show:** the setup screen (Red Deck / White Stake), with
+"Queueing m:ss" ticking in the connection panel on the left. No guard yet.
 
-![10](gallery/10-guard-from-newrun-menu.png)
+![10a](gallery/10a-newrun-setup-while-queued.png)
+
+### 10b · After clicking Play: the guard replaces the setup
+**Done:** clicked Play from that screen — through the real wrapped `start_run`.
+**Should show:** the guard overlay — it REPLACES the setup overlay (real
+behavior, they don't stack); the run did NOT start; "Queueing" still ticking.
+
+![10b](gallery/10b-guard-replaces-setup.png)
 
 ### 11 · Blocked from the challenge list
 **Done:** same, but from the challenge list.
@@ -98,15 +124,15 @@ real behavior, they don't stack); the run did NOT start.
 
 ### 12 · After "Stay Queued"
 **Done:** pressed Stay Queued on the guard.
-**Should show:** overlay gone, back at the main menu, the search still active
-— nothing else changed.
+**Should show:** overlay gone, back at the main menu, and "Queueing m:ss"
+STILL ticking in the connection panel — the search survived.
 
 ![12](gallery/12-guard-then-stay-queued.png)
 
 ### 13 · After "Leave Queue"
 **Done:** pressed Leave Queue.
-**Should show:** overlay gone, menu bright/unpaused, search ended — and no
-run started.
+**Should show:** overlay gone, menu bright/unpaused, and the "Queueing"
+status GONE from the connection panel — search ended, no run started.
 
 ![13](gallery/13-guard-then-leave-queue.png)
 
