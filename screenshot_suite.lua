@@ -205,6 +205,10 @@ local function after(delay, fn)
 		delay = delay,
 		blockable = false,
 		blocking = false,
+		-- Survive G.E_MANAGER:clear_queue(): scenarios that really start a run
+		-- (guard replay outcomes) wipe the event queue as part of vanilla run
+		-- start, which silently killed the runner's own scheduled capture.
+		no_delete = true,
 		func = function()
 			fn()
 			return true
