@@ -285,6 +285,26 @@ function DEVTOOLS.run_shot_suite(and_quit)
 	end)
 end
 
+-- Auto-runs capture at a CANONICAL resolution: shots are deterministic
+-- across runs/machines (goldens need that) and 16:9 fills the frame with UI
+-- -- Balatro sizes its interface by window HEIGHT, so ultrawide width only
+-- adds background. Override with BMP_SHOT_RES=WxH (clamped to the desktop by
+-- LOVE); the game quits after the run, so nothing is restored.
+local function set_canonical_resolution()
+	local w, h = 1920, 1080
+	local env = os.getenv('BMP_SHOT_RES')
+	if env then
+		local ew, eh = env:match('^(%d+)x(%d+)$')
+		if ew then
+			w, h = tonumber(ew), tonumber(eh)
+		end
+	end
+	pcall(function()
+		love.window.setMode(w, h, { fullscreen = false, resizable = true })
+		love.resize(w, h)
+	end)
+end
+
 -- Env-triggered auto-run: poll until the main menu is up, settle, run, quit.
 if os.getenv('BMP_SHOT_SUITE') then
 	local started = false
@@ -298,7 +318,12 @@ if os.getenv('BMP_SHOT_SUITE') then
 			end
 			if G.STAGE == G.STAGES.MAIN_MENU then
 				started = true
-				after(2.0, function()
+				set_canonical_resolution()
+				-- Generous first delay: the menu's background shader and card
+				-- cascade take a few seconds to spin up after the menu appears;
+				-- capturing sooner gives the first scenario a half-loaded
+				-- backdrop the rest of the run does not have.
+				after(6.0, function()
 					DEVTOOLS.run_shot_suite(true)
 				end)
 				return true
