@@ -85,9 +85,15 @@ DEVTOOLS.slot_default_name = instance_slot.pick_default(DEVTOOLS.instance_slot, 
 
 local imp_id = os.getenv('BMP_IMPERSONATE_ID')
 local imp_name = os.getenv('BMP_IMPERSONATE_NAME')
+-- The SLOT default only engages against a custom (local dev) server: the
+-- impersonate endpoint does not exist in production, so auto-impersonating
+-- there would just fail every login for anyone who installs this mod while
+-- pointed at the real server. Explicit env vars are left alone -- setting
+-- one is already a deliberate act.
+local on_dev_server = MPAPI.config and MPAPI.config.use_custom_server
 local target = (imp_id and { playerId = imp_id })
 	or (imp_name and { steamName = imp_name })
-	or (DEVTOOLS.slot_default_name and { steamName = DEVTOOLS.slot_default_name })
+	or (on_dev_server and DEVTOOLS.slot_default_name and { steamName = DEVTOOLS.slot_default_name })
 if target then
 	function connection._do_auth(self)
 		self:_try_impersonate_auth(target)
