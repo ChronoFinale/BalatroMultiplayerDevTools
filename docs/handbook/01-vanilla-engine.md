@@ -36,6 +36,25 @@ inside one frame tick, and ordering within `Game:update` is the only synchroniza
 
 ### 3.1 The event queue — `blocking` / `blockable` / `no_delete` / `clear_queue`
 
+**The model in one line: Balatro has no threads — it has a to-do list the game walks once per
+frame.**
+
+Each entry is an `Event` holding a `func`. Walking the list calls each func; returning `true` means
+"done, remove me", `false` means "call me again next frame". That `false` is the engine's *entire*
+concept of waiting — no futures, no callbacks, just "not yet, ask again".
+
+The two flags every event carries describe its relationship to the OTHER entries:
+
+- **`blocking`** — *nothing behind me runs until I finish.* This is how animations stay ordered
+  (card flies to hand → then score tallies → then the blind ends).
+- **`blockable`** — *I am willing to wait for whatever is ahead of me.* Set it `false` and the event
+  runs every frame regardless — what you want for ambient work: timer ticks, status polls, a
+  screenshot runner.
+
+Both default to **true**, so a bare `add_event(Event({func = ...}))` is maximally entangled: it
+waits for everyone ahead AND blocks everyone behind. Most mod code wants
+`blocking = false, blockable = false` — "just run me, leave the ordering alone".
+
 `EventManager` keeps five independent queues (`unlock`, `base`, `tutorial`, `achievement`,
 `other` — `event.lua:110-116`). Each tick it walks every queue front-to-back; the first event that
 reports `blocking` sets a `blocked` flag, and after that only events with `blockable == false` are
@@ -73,22 +92,37 @@ Two more semantics reviewers hit constantly:
   game is paused (`event.lua:50`), and its timer defaults to `'REAL'` when created paused vs
   `'TOTAL'` otherwise (`event.lua:22-23`). `TOTAL` runs at `G.SPEEDFACTOR` game speed
   (`game.lua:2495-2498`); `REAL` is wall-clock.
-- **`clear_queue` respects `no_delete`.** `EventManager:clear_queue(queue, exception)` removes
-  everything except events flagged `no_delete` (`event.lua:133-169`). Vanilla calls this on run
-  wipes; any mod event that must survive a screen transition needs `no_delete = true` — e.g. the
-  controller's own unlock event uses exactly that (`controller.lua:199-210`).
+- **`clear_queue` respects `no_delete`** — this one is about *survival*, not ordering.
+  `EventManager:clear_queue(queue, exception)` wipes the list except events flagged `no_delete`
+  (`event.lua:133-169`). Vanilla calls it whenever a run starts or ends, cancelling every pending
+  animation from the old screen. Anything that must outlive that transition needs the flag — the
+  controller's own unlock event does exactly this (`controller.lua:199-210`). *Worked example:* the
+  DevTools shot suite scheduled its next capture as a normal event; a scenario that started a real
+  run hit `start_run` → `clear_queue()`, the capture event was deleted along with the run's leftover
+  animations, and the suite silently stalled. The fix was one flag.
 - `add_event(event, queue, front)` can push to the *front* of a queue (`event.lua:122-131`) —
   front-pushed blocking events preempt everything already scheduled.
 
 ### 3.2 Moveable: `T` vs `VT`, roles/bonds, `STATIONARY`, `lr_clamp`
 
-Every Moveable has a target transform `T` and a visible transform `VT` that eases toward it
-(`moveable.lua:20-27`); game code writes `T`, the engine animates `VT`. Movement is arranged as a
-hierarchy of *roles* (`moveable.lua:39-48`): `Major` objects integrate their own velocity
-(`move_xy`/`move_r`/`move_scale`/`move_wh`, `moveable.lua:306-313`), `Minor` objects are welded to
-a major with per-channel bonds (`Strong` = copy, `Weak` = self-calculate), and `Glued` shares the
-major's `T` table outright (`moveable.lua:329-341`). The performance keystone is `STATIONARY`
-gating inside `Moveable:move`:
+**The model: a car with GPS.** `T` (target transform) is the destination you typed in; `VT`
+(visible transform) is where the car actually is right now. Game code only ever sets destinations;
+the engine drives everything toward them a little each frame (`moveable.lua:20-27`). Animation is
+not a separate system — it is this gap closing. Read `VT` mid-animation and you get an in-between
+value, not the destination. Need a teleport instead? `hard_set_T` snaps `VT = T`.
+
+**Things can be strapped to other things.** A phone in your pocket doesn't navigate; it goes where
+you go. That is a `Minor` attached to a `Major` (`moveable.lua:39-48`). A **Major** integrates its
+own velocity (`move_xy`/`move_r`/`move_scale`/`move_wh`, `moveable.lua:306-313`). A **Minor** is
+welded to its major by *per-property bonds*: `Strong` = "copy the major's value for this channel",
+`Weak` = "compute my own" — so a hover popup can copy its card's position (Strong) while sizing
+itself to its own content (Weak). **Glued** is the extreme: it shares the major's `T` table
+outright — same coordinates, not a copy (`moveable.lua:329-341`).
+
+**`STATIONARY` means "nobody moved, so skip the math."** Each frame a Major optimistically declares
+itself stationary; any easing still covering distance flips it false. A Minor inherits that flag and
+skips its own recalculation when the major didn't move — a dirty-flag optimization, and the reason a
+UI tree of hundreds of elements costs almost nothing:
 
 ```lua
 -- engine/moveable.lua:295-305
@@ -105,16 +139,22 @@ elseif self.role.role_type == 'Minor' and self.role.major then
     end
 ```
 
-A Minor inherits its major's `STATIONARY` and skips `move_with_major` entirely when nothing moved —
-this is why a UI tree of hundreds of elements is cheap, and why a stuck element usually means
-nobody set `NEW_ALIGNMENT`/`refresh_movement` after mutating `T` out-of-band. Majors set
+*Worked example — the popup-clamp saga.* With a **stationary** anchor, moving a popup's outer box
+did nothing visible: its children never re-followed, because the engine had already decided nothing
+here moved. The fix for that case is to change something that marks the tree dirty — the alignment
+offset, which raises `NEW_ALIGNMENT` — rather than the transform. With a **moving** anchor (a tile
+rising because you selected it), everything recalculates every frame anyway, so clamping the
+transform directly works. Two situations, two mechanisms: that is what the dual-clamp comment in
+`api/ban_pick.lua` is about. Generally: a stuck element means nobody set
+`NEW_ALIGNMENT`/`refresh_movement` after mutating `T` out-of-band. Majors set
 `STATIONARY = true` each frame (`moveable.lua:307`) and any easing function that still has distance
 to cover flips it false (`moveable.lua:415`, `428`, `439`, `452`). `move` is also re-entrancy
 guarded per frame by `FRAME.MOVE >= G.FRAMES.MOVE` (`moveable.lua:279`), with `G.FRAMES.MOVE`
 incremented once per `Game:update` (`game.lua:2455`).
 
-`set_alignment` (`moveable.lua:94-112`) both sets the role (major + bonds) and an alignment code
-string (`'cm'`, `'tm'`, `'bi'`, ...) which `align_to_major` converts into a `role.offset`
+Alignment codes are shorthand for *how* you attach to your parent: `'cm'` centered, `'tm'` above,
+`'bm'` below (`i` = inside). `set_alignment` (`moveable.lua:94-112`) both sets the role (major +
+bonds) and an alignment code string (`'cm'`, `'tm'`, `'bi'`, ...) which `align_to_major` converts into a `role.offset`
 (`moveable.lua:114-188`) — but only when type or offset actually *changed*
 (`moveable.lua:128-130`); the offset is cached otherwise. `lr_clamp`, set via alignment args,
 clamps both `T.x` and `VT.x` into `G.ROOM` horizontally after each move
