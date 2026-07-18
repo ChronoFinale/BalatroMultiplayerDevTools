@@ -9,28 +9,32 @@
 --
 -- Or from a running instance: DEVTOOLS.run_shot_suite().
 --
--- GENERAL REGISTRY: any mod (or this file) registers scenarios --
+-- THIS MOD IS ONLY THE RUNNER. The scenarios themselves live in the repos
+-- whose code they cover, as inert files never loaded by those mods: each
+-- loaded SMODS mod may carry `dev/shots.lua` returning
 --
---   DEVTOOLS.shots.register({
---     name = '09-my-scene',           -- also the PNG/golden filename
---     expect = 'what a correct shot shows', -- reviewed against the PNG by
---                                     -- whoever (or whatever) checks the run
---     region = {x=.2,y=.4,w=.6,h=.55},-- optional: frame-fraction crop compared
---                                     -- by compare_shots.py, so the animated
---                                     -- background never participates in diffs
---     skip = function() ... end,      -- optional: return true to skip
---     setup = function(done) ... end, -- stage the scene; call done() when set
---     teardown = function() ... end,  -- optional: undo hovers etc.
---   })
+--   function(H)   -- H = this harness (start_draft/find_tile/find_ui)
+--     return {
+--       {
+--         name = '01-my-scene',       -- also the PNG/golden filename
+--         expect = 'what a correct shot shows',  -- reviewed against the PNG
+--         region = {x=.2,y=.4,w=.6,h=.55},  -- optional: frame-fraction crop
+--                                     -- compared by compare_shots.py, so the
+--                                     -- animated background never diffs
+--         skip = function() ... end,  -- optional: return true to skip
+--         setup = function(done) ... end,  -- stage the scene, then done()
+--         teardown = function() ... end,   -- optional: undo hovers etc.
+--       },
+--     }
+--   end
 --
--- Register from a consumer mod behind `if DEVTOOLS and DEVTOOLS.shots then`.
---
--- The built-in draft scenarios below double as examples. They drive the real
--- draft engine via a loopback lobby: BP.start as host with action keys that
--- are NOT in MPAPI.ActionTypes -- broadcasts no-op while the whole host path
--- (state machine, validation, overlay UI) runs for real. Interactions go
--- through the same code paths as player input (card:click(), card:hover(),
--- the G.FUNCS button handlers), so the screenshots show what a player gets.
+-- Discovery happens once, at the start of an explicitly-requested run --
+-- nothing is loaded or executed on normal boots. The API repo's
+-- dev/shots.lua is the reference example: its scenarios drive the real
+-- draft engine via a loopback lobby (BP.start as host with action keys NOT
+-- in MPAPI.ActionTypes, so broadcasts no-op while the whole host path runs
+-- for real), and interactions go through the same code paths as player
+-- input (card:click(), card:hover(), the G.FUNCS button handlers).
 
 local M = { scenarios = {} }
 local SHOT_DIR = 'shot_suite'
@@ -128,139 +132,45 @@ function M.find_ui(node, pred, depth)
 end
 
 -----------------------------
--- Built-in draft scenarios
+-- Scenario discovery
 -----------------------------
 
-local PLAIN_POOL = { 'b_red', 'b_blue', 'b_yellow', 'b_green', 'b_black', 'b_magic', 'b_nebula', 'b_ghost', 'b_abandoned' }
-local TUPLE_POOL = {
-	{ key = 'b_red', stake = 1 }, { key = 'b_red', stake = 5 }, { key = 'b_blue', stake = 3 },
-	{ key = 'b_green', stake = 4 }, { key = 'b_black', stake = 1 }, { key = 'b_magic', stake = 3 },
-	{ key = 'b_nebula', stake = 5 }, { key = 'b_ghost', stake = 1 }, { key = 'b_abandoned', stake = 4 },
-}
--- actor = 1 matters: resolve_actor maps a step's actor through state.first,
--- and a nil actor resolves as actor 2 -- without it every scene renders as
--- the OPPONENT's turn (the first suite run caught exactly that).
-local BAN3 = { { actor = 1, action = 'ban', count = 3 } }
-
--- The centered draft panel (no popups above it).
-local PANEL_REGION = { x = 0.22, y = 0.38, w = 0.56, h = 0.60 }
--- Panel plus the airspace hover popups grow into.
-local HOVER_REGION = { x = 0.16, y = 0.04, w = 0.68, h = 0.94 }
-
-local function cocktail_missing()
-	return not (G.P_CENTERS and G.P_CENTERS.b_mp_cocktail)
-end
-
-local function cocktail_pool()
-	local pool = { unpack(TUPLE_POOL) }
-	pool[3] = {
-		key = 'b_mp_cocktail', stake = 3,
-		cocktail = { 'b_green', 'b_black', 'b_mp_orange' },
-		cocktail_name = 'Casjb',
-	}
-	return pool
-end
-
-M.register({
-	name = '01-ban-turn-plain',
-	expect = "Draft overlay over the main menu: DECK BAN title, 'Your turn' status in green, 9 deck tiles in a row, 'Selected: 0/3' counter, greyed Confirm Ban, blue Random. No ERROR text anywhere.",
-	region = PANEL_REGION,
-	setup = function(done)
-		M.start_draft(PLAIN_POOL, BAN3, 1)
-		done()
-	end,
-})
-M.register({
-	name = '02-selected-2of3',
-	expect = "Two tiles (1st and 5th) raised with red 'Selected' tags; counter reads 'Selected: 2/3'; Confirm still greyed (needs exactly 3).",
-	region = PANEL_REGION,
-	setup = function(done)
-		M.start_draft(PLAIN_POOL, BAN3, 1)
-		local t1, t2 = M.find_tile('b_red'), M.find_tile('b_black')
-		if t1 then t1:click() end
-		if t2 then t2:click() end
-		done()
-	end,
-})
-M.register({
-	name = '03-random-armed',
-	expect = "No tiles raised; counter reads '?/3'; Random button is RED reading 'Cancel Random'; Confirm is GREEN reading 'Confirm Random'.",
-	region = PANEL_REGION,
-	setup = function(done)
-		M.start_draft(PLAIN_POOL, BAN3, 1)
-		G.FUNCS.mpapi_ban_pick_random()
-		done()
-	end,
-})
-M.register({
-	name = '04-offturn-greyed',
-	expect = "Status reads waiting/their-turn (not green); counter and BOTH buttons visible but greyed out; layout otherwise identical to scenario 01.",
-	region = PANEL_REGION,
-	setup = function(done)
-		M.start_draft(PLAIN_POOL, BAN3, 2)
-		done()
-	end,
-})
-M.register({
-	name = '05-banned-tiles',
-	expect = "Same board as 01 but the 2nd and 8th tiles are debuffed (darkened X overlay); they must not react to anything.",
-	region = PANEL_REGION,
-	setup = function(done)
-		local lobby = M.start_draft(PLAIN_POOL, BAN3, 1)
-		lobby._ban_pick.banned['b_blue'] = true
-		lobby._ban_pick.banned['b_ghost'] = true
-		BP.on_state(lobby, lobby._ban_pick)
-		done()
-	end,
-})
-M.register({
-	name = '06-tuple-hover-stake-column',
-	expect = "Hover popup over the 7th tile: deck name + effects on the left, stake column on the right (stake name in its colour, description, 'Also applied' list). Popup fully on screen.",
-	region = HOVER_REGION,
-	setup = function(done)
-		M.start_draft(TUPLE_POOL, BAN3, 1)
-		local tile = M.find_tile('b_nebula@5')
-		if tile then tile:hover() end
-		done()
-	end,
-	teardown = function()
-		local tile = M.find_tile('b_nebula@5')
-		if tile then tile:stop_hover() end
-	end,
-})
-M.register({
-	name = '07-cocktail-badge-hover',
-	expect = "Badge pill above the tiles reads 'Casjb Cocktail: Green Deck + Black Deck + Orange Deck'; its hover shows the three decks SIDE BY SIDE with full effects, growing downward, fully on screen.",
-	region = HOVER_REGION,
-	skip = cocktail_missing,
-	setup = function(done)
-		M.start_draft(cocktail_pool(), BAN3, 1)
-		local badge = M.find_ui(G.OVERLAY_MENU, function(n)
-			return n.config.mp_comp_item ~= nil
-		end)
-		if badge then
-			-- The rich hover is installed by the badge's per-frame init func;
-			-- immediately after the rebuild it has not run yet, so hovering
-			-- now would hit the default popup-less UIElement hover. Run it
-			-- explicitly first (idempotent), then hover.
-			G.FUNCS.mpapi_cocktail_badge_init(badge)
-			badge:hover()
+-- Pull scenarios from the mods under test: any loaded SMODS mod may carry
+-- dev/shots.lua (see the header contract). Runs once per session, at the
+-- start of an explicitly-requested run.
+local function discover()
+	if M._discovered then
+		return
+	end
+	M._discovered = true
+	for id, _mod in pairs(SMODS.Mods or {}) do
+		local ok, chunk = pcall(SMODS.load_file, 'dev/shots.lua', id)
+		if ok and chunk then
+			local ok2, factory = pcall(chunk)
+			if ok2 and type(factory) == 'function' then
+				local ok3, list = pcall(factory, M)
+				if ok3 and type(list) == 'table' then
+					local n = 0
+					for _, sc in ipairs(list) do
+						local ok4, err = pcall(M.register, sc)
+						if ok4 then
+							n = n + 1
+						else
+							DEVTOOLS.sendWarnMessage('bad scenario from ' .. id .. ': ' .. tostring(err))
+						end
+					end
+					DEVTOOLS.sendDebugMessage('shots: ' .. n .. ' scenarios from ' .. id)
+				elseif not ok3 then
+					DEVTOOLS.sendWarnMessage('shots factory errored for ' .. id .. ': ' .. tostring(list))
+				end
+			end
 		end
-		done()
-	end,
-})
-M.register({
-	name = '08-cocktail-tile-hover-compact',
-	expect = "Cocktail tile hover is COMPACT: 'Casjb Cocktail' title, 'rotating 3-deck mix' line, three deck NAMES only (no effect boxes), plus the stake column. Same footprint as a normal deck's hover.",
-	region = HOVER_REGION,
-	skip = cocktail_missing,
-	setup = function(done)
-		M.start_draft(cocktail_pool(), BAN3, 1)
-		local tile = M.find_tile('b_mp_cocktail@3')
-		if tile then tile:hover() end
-		done()
-	end,
-})
+	end
+	-- Deterministic run order regardless of mod iteration order.
+	table.sort(M.scenarios, function(a, b)
+		return a.name < b.name
+	end)
+end
 
 -----------------------------
 -- Runner
@@ -350,6 +260,7 @@ local function write_gallery(entries)
 end
 
 function DEVTOOLS.run_shot_suite(and_quit)
+	discover()
 	love.filesystem.createDirectory(SHOT_DIR)
 	DEVTOOLS.sendDebugMessage('shot suite: ' .. #M.scenarios .. ' scenarios -> save-dir/' .. SHOT_DIR)
 	run_scenario(1, {}, function(entries)
