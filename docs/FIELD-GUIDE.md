@@ -126,6 +126,14 @@ that's itself a finding.
 - **`CardArea`**: `emplace → set_ranks` mutates state (drag!) of every card
   already in the area — per-card setup before later emplaces gets undone.
 
+**Going deeper per layer.** This part is the map; the
+[ecosystem handbook](handbook/README.md) is the depth layer. It has one chapter
+per layer above (engine → loaders → the four MPAPI framework chapters → the two
+consumer mods → the server), each with the key files, load-bearing invariants,
+and bug-costing gotchas for that layer. Read a chapter when a PR lands on its
+layer and the map isn't enough; `handbook/README.md` has a chapter table and
+reading orders for UI-first vs networking-first reviewers.
+
 ---
 
 ## Part 3 · Guided reading tour (~10 files, in order)
