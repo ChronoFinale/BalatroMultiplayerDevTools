@@ -204,17 +204,17 @@ card-heights from the top, else `'tm'` (`card.lua:4275-4304`). `stop_hover` remo
 
 ```mermaid
 sequenceDiagram
-    participant L as love.update (main.lua:126)
-    participant Gm as Game:update (game.lua:2449)
+    participant L as love.update (main.lua 126)
+    participant Gm as Game update (game.lua 2449)
     participant EM as G.E_MANAGER
     participant MV as G.MOVEABLES
     participant C as G.CONTROLLER
     L->>Gm: G:update(dt)
-    Gm->>Gm: FRAMES.MOVE += 1 (2455), timers; dt=0 if paused (2484)
+    Gm->>Gm: FRAMES.MOVE += 1 (2455), timers, dt=0 if paused (2484)
     Gm->>EM: update(real_dt) — drain queues (2509)
     Gm->>Gm: per-STATE update fns (2544-2607)
     Gm->>MV: v:move(move_dt) for all (2626-2628)
-    Gm->>MV: v:update(dt*SPEEDFACTOR); collide.is=false (2631-2634)
+    Gm->>MV: v:update(dt*SPEEDFACTOR), collide.is=false (2631-2634)
     Gm->>C: CONTROLLER:update(real_dt) (2638)
 ```
 
@@ -245,10 +245,10 @@ sequenceDiagram
     C->>C: get_cursor_collision — DRAW_HASH reversed (ctrl:972-981)
     C->>C: set_cursor_hover → first hoverable (ctrl:1006-1012)
     C->>Card: hovering.target:hover() (ctrl:393-397)
-    Card->>Card: generate_UIBox_ability_table; h_popup(+config) (card:4321-4323)
+    Card->>Card: generate_UIBox_ability_table, h_popup(+config) (card:4321-4323)
     Card->>N: Node.hover → children.h_popup = UIBox{...} (node:267-277)
     C->>Card: (cursor leaves) stop_hover (ctrl:416-421)
-    Card->>N: h_popup:remove(); nil (node:282-287)
+    Card->>N: h_popup:remove(), nil (node:282-287)
 ```
 
 ## 5. Invariants & gotchas

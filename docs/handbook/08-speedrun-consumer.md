@@ -114,7 +114,7 @@ sequenceDiagram
     S-->>G: lobby_ready
     Note over H,G: both signal_ready + resync loop [queue.lua:58-59]
     H->>G: broadcast spdrn_start_game{seed} (auto-start) [ready.lua:94-95]
-    Note over H,G: both run start_game.on_receive; gm has ban_pick + is_matchmaking [start_game.lua:33]
+    Note over H,G: both run start_game.on_receive, gm has ban_pick + is_matchmaking [start_game.lua:33]
     H->>H: BanPick.start: build vanilla pool(9), schedule=6 alt bans [ban_pick.lua:1303-1328]
     H->>G: spdrn_ban_pick_state (full state, serial-stamped) [ban_pick.lua:1090-1110]
     loop until 3 survivors
@@ -135,7 +135,7 @@ sequenceDiagram
 sequenceDiagram
     participant G as Guest (its turn)
     participant H as Host
-    G->>G: click tiles → _selected; Confirm [ban_pick.lua:761-771,1401]
+    G->>G: click tiles → _selected, Confirm [ban_pick.lua:761-771,1401]
     G->>H: ban_action{item_key=id} to order[1] [ban_pick.lua:1200-1204]
     H->>H: apply_action: turn check, legality, mark ban, advance schedule [ban_pick.lua:1137-1173]
     H->>G: state_action{state} serial++ [ban_pick.lua:1098-1109]

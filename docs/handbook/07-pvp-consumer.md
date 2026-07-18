@@ -145,7 +145,7 @@ sequenceDiagram
     participant API as MPAPI lobby events
     participant BR as lobby_bridge
     participant PC as Pure cores (disconnect_grace)
-    participant GU as Game:update tick
+    participant GU as Game update tick
     API->>BR: PLAYER_LEFT / PLAYER_DISCONNECTED (lobby_bridge.lua:212-229)
     BR->>PC: decide_departure_action(event, state) (lobby_bridge.lua:109)
     PC-->>BR: "start_grace"

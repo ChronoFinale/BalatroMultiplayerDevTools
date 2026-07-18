@@ -143,8 +143,8 @@ sequenceDiagram
     API-->>Conn: err → clear token, fall back to Steam ticket (connection.lua:117-124)
     API-->>Conn: tosRequired → state TOS_REQUIRED, hold pending token (connection.lua:126-133)
     API-->>Conn: ok → _handle_auth_success: jwt, player_id, save refreshToken (connection.lua:65-97)
-    Conn->>Broker: CONNECTING; connect msg w/ jwt as password (connection.lua:337-385)
-    Broker-->>Conn: on_connect → CONNECTED; subscribe player/<id>/account/# (connection.lua:343-357)
+    Conn->>Broker: CONNECTING, connect msg w/ jwt as password (connection.lua:337-385)
+    Broker-->>Conn: on_connect → CONNECTED, subscribe player/<id>/account/# (connection.lua:343-357)
     Conn->>Game: if auth payload had a lobby: create_reconnected_lobby (lifecycle.lua:237-239)
 ```
 

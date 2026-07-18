@@ -169,7 +169,7 @@ sequenceDiagram
     D->>Srv: MPAPI.join_lobby(lobbyCode)
     Srv-->>D: LobbyEvent.CONNECTED
     D->>Mod: handle LOBBY_READY(lobby)
-    Note over Mod,Srv: ...match plays out; mod calls handle:report_result...
+    Note over Mod,Srv: ...match plays out, mod calls handle:report_result...
     Srv-->>MQTT: {type: match_resolved, ratings}
     MQTT->>D: dispatch(msg)
     D->>Mod: handle MATCH_RESOLVED(ratings)
@@ -189,7 +189,7 @@ sequenceDiagram
     G->>G: is_queued() == true → stash replay
     G->>O: open overlay, return true (EP aborts)
     P->>O: "Leave Queue & Continue"
-    O->>O: leave_all_handles() (copy first; each fires 'left')
+    O->>O: leave_all_handles() (copy first, each fires 'left')
     O->>EP: pending_action() → re-enters EP
     EP->>G: guard_queued again
     G-->>EP: is_queued() == false → return false

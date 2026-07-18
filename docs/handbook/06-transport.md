@@ -155,7 +155,7 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant MC as mqtt_client:update() (main)
+    participant MC as mqtt_client update() (main)
     participant T as love thread handle
     participant API as api_client
     participant Callers as pending callers
@@ -181,7 +181,7 @@ sequenceDiagram
     participant W as worker
     L->>MC: mqtt_client.new(broker, port, secure)
     L->>API: api_client.new(mqtt, base_url)  [empty _queue]
-    L->>CN: connection.new{...}; connect()
+    L->>CN: connection.new{...}, connect()
     CN->>MC: start_thread() (loads mqtt_thread.lua via NFS)
     CN->>API: authenticate_refresh / authenticate_steam (HTTP)
     API-->>CN: cb(nil, {token, player, refreshToken})

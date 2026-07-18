@@ -214,13 +214,13 @@ sequenceDiagram
 sequenceDiagram
     participant F as objects/jokers/defensive_joker.lua
     participant GO as SMODS.GameObject
-    participant Game as Game:init_item_prototypes
+    participant Game as Game init_item_prototypes
     participant G as G.P_CENTERS / POOLS
     F->>GO: SMODS.Joker{ key = "defensive_joker" } (defensive_joker.lua:8)
     GO->>GO: add_prefixes → j_mp_defensive_joker (game_object.lua:53-73)
     GO->>GO: register → obj_buffer up class chain (game_object.lua:139-152)
     Game->>GO: injectItems hook fires (preflight/loader.lua:890-896)
-    GO->>G: inject: P_CENTERS[key]=obj; insert_pool(P_CENTER_POOLS["Joker"]) (game_object.lua:1191-1193)
+    GO->>G: inject: P_CENTERS[key]=obj, insert_pool(P_CENTER_POOLS["Joker"]) (game_object.lua:1191-1193)
     GO->>G: process_loc_text → localization.descriptions.Joker (game_object.lua:167-169, 208)
 ```
 
